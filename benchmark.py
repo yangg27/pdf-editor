@@ -16,7 +16,7 @@ import time
 import tracemalloc
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 
 from pdf_editor.pdf_engine import (
     merge_pdfs,

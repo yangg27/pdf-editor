@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-import fitz
+import pymupdf as fitz
 from pathlib import Path
 from typing import List, Tuple, Optional
 
