@@ -3,3 +3,10 @@
 __pycache__/
 .pytest_cache/
 .venv/
+.venv-sys/
+dist/
+build/
+*.spec
+.integration_test/
+benchmark_result.json
+optimization_results.json
