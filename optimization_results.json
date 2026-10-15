@@ -72,5 +72,38 @@
     },
     "tests_passed": true,
     "accepted": false
+  },
+  {
+    "round": 7,
+    "strategy": "del_large_objects",
+    "before": {
+      "startup_seconds": 0.19002540000656154,
+      "total_processing_seconds": 0.5293816000048537,
+      "memory_peak_mb": 0.0155029296875
+    },
+    "after": {
+      "startup_seconds": 0.1893318999937037,
+      "total_processing_seconds": 0.5300370000186376,
+      "memory_peak_mb": 0.015353202819824219
+    },
+    "tests_passed": true,
+    "accepted": false
+  },
+  {
+    "round": 8,
+    "strategy": "select_split",
+    "skipped": true
+  },
+  {
+    "round": 9,
+    "strategy": "select_reorder",
+    "tests_passed": false,
+    "accepted": false
+  },
+  {
+    "round": 10,
+    "strategy": "fast_merge",
+    "tests_passed": false,
+    "accepted": false
   }
 ]

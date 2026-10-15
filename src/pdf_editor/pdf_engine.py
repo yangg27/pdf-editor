@@ -44,8 +44,8 @@ def split_pdf(input_path: Path, output_dir: Path, ranges: list[tuple[int, int]])
         for idx, (start, end) in enumerate(ranges, start=1):
             if start < 1 or end > total or start > end:
                 raise ValueError(f"无效页码范围 {start}-{end}，总页数 {total}")
-            new_doc = fitz.open()
-            new_doc.insert_pdf(doc, from_page=start - 1, to_page=end - 1)
+            new_doc = fitz.open(input_path)
+            new_doc.select(list(range(start - 1, end)))
             out_path = output_dir / f"{input_path.stem}_part{idx}_{start}-{end}.pdf"
             new_doc.save(out_path)
             new_doc.close()
