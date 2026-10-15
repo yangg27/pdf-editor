@@ -7,14 +7,13 @@ from __future__ import annotations
 
 import pymupdf as fitz
 from pathlib import Path
-from typing import List, Tuple, Optional
 
 
 def _ensure_dir(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
 
-def merge_pdfs(input_paths: List[Path], output_path: Path) -> None:
+def merge_pdfs(input_paths: list[Path], output_path: Path) -> None:
     """合并多个 PDF 文件为一个。"""
     if not input_paths:
         raise ValueError("至少需要一个输入文件")
@@ -29,7 +28,7 @@ def merge_pdfs(input_paths: List[Path], output_path: Path) -> None:
     merged.close()
 
 
-def split_pdf(input_path: Path, output_dir: Path, ranges: List[Tuple[int, int]]) -> List[Path]:
+def split_pdf(input_path: Path, output_dir: Path, ranges: list[tuple[int, int]]) -> list[Path]:
     """按页码范围拆分 PDF。
 
     ranges: [(start, end), ...]，页码从 1 开始，闭区间。
@@ -38,7 +37,7 @@ def split_pdf(input_path: Path, output_dir: Path, ranges: List[Tuple[int, int]])
     if not input_path.exists():
         raise FileNotFoundError(f"找不到文件: {input_path}")
     output_dir.mkdir(parents=True, exist_ok=True)
-    out_paths: List[Path] = []
+    out_paths: list[Path] = []
     with fitz.open(input_path) as doc:
         total = len(doc)
         for idx, (start, end) in enumerate(ranges, start=1):
@@ -53,7 +52,7 @@ def split_pdf(input_path: Path, output_dir: Path, ranges: List[Tuple[int, int]])
     return out_paths
 
 
-def rotate_pdf(input_path: Path, output_path: Path, angle: int, pages: Optional[List[int]] = None) -> None:
+def rotate_pdf(input_path: Path, output_path: Path, angle: int, pages: list[int] | None = None) -> None:
     """旋转 PDF 页面。
 
     angle: 90 / 180 / 270（顺时针）。
@@ -100,7 +99,7 @@ def add_text_watermark(
     opacity: float = 0.3,
     angle: int = 45,
     font_size: int = 48,
-    color: Tuple[float, float, float] = (0.5, 0.5, 0.5),
+    color: tuple[float, float, float] = (0.5, 0.5, 0.5),
 ) -> None:
     """为每一页添加文字水印。"""
     if not input_path.exists():
@@ -140,11 +139,11 @@ def add_image_watermark(
         doc.save(output_path)
 
 
-def extract_text(input_path: Path, pages: Optional[List[int]] = None) -> str:
+def extract_text(input_path: Path, pages: list[int] | None = None) -> str:
     """提取 PDF 文字。"""
     if not input_path.exists():
         raise FileNotFoundError(f"找不到文件: {input_path}")
-    parts: List[str] = []
+    parts: list[str] = []
     with fitz.open(input_path) as doc:
         target_pages = pages or list(range(1, len(doc) + 1))
         for p in target_pages:
@@ -152,3 +151,5 @@ def extract_text(input_path: Path, pages: Optional[List[int]] = None) -> str:
                 raise ValueError(f"无效页码 {p}，总页数 {len(doc)}")
             parts.append(doc[p - 1].get_text())
     return "\n".join(parts)
+
+# REDUCE_IMPORTS
