@@ -56,5 +56,21 @@
     },
     "tests_passed": true,
     "accepted": false
+  },
+  {
+    "round": 6,
+    "strategy": "precompute_watermark",
+    "before": {
+      "startup_seconds": 0.18804670000099577,
+      "total_processing_seconds": 0.5243535000045085,
+      "memory_peak_mb": 0.016158103942871094
+    },
+    "after": {
+      "startup_seconds": 0.19002540000656154,
+      "total_processing_seconds": 0.5293816000048537,
+      "memory_peak_mb": 0.0155029296875
+    },
+    "tests_passed": true,
+    "accepted": false
   }
 ]

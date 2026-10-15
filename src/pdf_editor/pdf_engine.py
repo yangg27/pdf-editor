@@ -26,6 +26,7 @@ def merge_pdfs(input_paths: list[Path], output_path: Path) -> None:
             merged.insert_pdf(doc)
     merged.save(output_path)
     merged.close()
+    del merged
 
 
 def split_pdf(input_path: Path, output_dir: Path, ranges: list[tuple[int, int]]) -> list[Path]:
@@ -48,6 +49,7 @@ def split_pdf(input_path: Path, output_dir: Path, ranges: list[tuple[int, int]])
             out_path = output_dir / f"{input_path.stem}_part{idx}_{start}-{end}.pdf"
             new_doc.save(out_path)
             new_doc.close()
+            del new_doc
             out_paths.append(out_path)
     return out_paths
 
@@ -90,6 +92,7 @@ def reorder_pdf(input_path: Path, output_path: Path, order: List[int]) -> None:
             new_doc.insert_pdf(doc, from_page=p - 1, to_page=p - 1)
         new_doc.save(output_path)
         new_doc.close()
+        del new_doc
 
 
 def add_text_watermark(
@@ -151,3 +154,5 @@ def extract_text(input_path: Path, pages: list[int] | None = None) -> str:
     return "\n".join(parts)  # EXTRACT_COMPREHENSION
 
 # REDUCE_IMPORTS
+
+# DEL_OBJECTS
