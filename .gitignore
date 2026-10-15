@@ -11,4 +11,4 @@ build/
 benchmark_result.json
 optimization_results.json
 .capture_work/
-.capture_samples/
+.capture_samples/tools_capture_newui.py
