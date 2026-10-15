@@ -106,16 +106,16 @@ def add_text_watermark(
     if not input_path.exists():
         raise FileNotFoundError(f"找不到文件: {input_path}")
     _ensure_dir(output_path)
+    text_width = font_size * len(text) * 0.6
+    text_height = font_size
+    safe_angle = round(angle / 90) * 90
     with fitz.open(input_path) as doc:
         for page in doc:
             rect = page.rect
             center = (rect.x0 + rect.width / 2, rect.y0 + rect.height / 2)
-            text_width = font_size * len(text) * 0.6
-            text_height = font_size
             pos = (center[0] - text_width / 2, center[1] + text_height / 2)
-            safe_angle = round(angle / 90) * 90
             page.insert_text(pos, text, fontsize=font_size, color=color, rotate=safe_angle, overlay=True)
-        doc.save(output_path)
+        doc.save(output_path)  # PRECOMPUTE_WM
 
 
 def add_image_watermark(
