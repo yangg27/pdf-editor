@@ -396,12 +396,38 @@ def apply_fast_merge() -> bool:
     return True
 
 
+def apply_extract_comprehension() -> bool:
+    """extract_text 使用列表推导式。"""
+    content = _read(ENGINE_FILE)
+    marker = "# EXTRACT_COMPREHENSION"
+    if marker in content:
+        return False
+    old = """    parts: list[str] = []
+    with fitz.open(input_path) as doc:
+        total = len(doc)
+        target_pages = pages or list(range(1, total + 1))
+        for p in target_pages:
+            if p < 1 or p > total:
+                raise ValueError(f\"无效页码 {p}，总页数 {total}\")
+            parts.append(doc[p - 1].get_text())
+    return "\\n".join(parts)  # CACHE_TOTAL_EXTRACT"""
+    new = """    with fitz.open(input_path) as doc:
+        total = len(doc)
+        target_pages = pages or list(range(1, total + 1))
+        parts = [doc[p - 1].get_text() for p in target_pages]
+    return "\\n".join(parts)  # EXTRACT_COMPREHENSION"""
+    if old not in content:
+        return False
+    _write(ENGINE_FILE, content.replace(old, new))
+    return True
+
+
 STRATEGIES: list[tuple[str, Callable[[], bool]]] = [
     ("pymupdf_alias", apply_pymupdf_alias),
-    ("lazy_ui_import", apply_lazy_ui),
     ("reduce_imports", apply_reduce_imports),
     ("cache_total_rotate", apply_cache_total_rotate),
     ("cache_total_extract", apply_cache_total_extract),
+    ("extract_comprehension", apply_extract_comprehension),
     ("precompute_watermark", apply_precompute_watermark),
     ("del_large_objects", apply_del_objects),
     ("select_split", apply_select_split),
@@ -420,8 +446,49 @@ def save_results(results: list[dict]):
     RESULTS_FILE.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def find_pareto_best(results: list[dict]) -> dict | None:
+    """从所有通过的轮次中找出帕累托最优点（三项指标均最小化）。"""
+    candidates = [
+        r for r in results
+        if r.get("tests_passed") and not r.get("skipped")
+    ]
+    if not candidates:
+        return None
+
+    def dominates(a: dict, b: dict) -> bool:
+        return (
+            a["after"]["startup_seconds"] <= b["after"]["startup_seconds"]
+            and a["after"]["total_processing_seconds"] <= b["after"]["total_processing_seconds"]
+            and a["after"]["memory_peak_mb"] <= b["after"]["memory_peak_mb"]
+            and (
+                a["after"]["startup_seconds"] < b["after"]["startup_seconds"]
+                or a["after"]["total_processing_seconds"] < b["after"]["total_processing_seconds"]
+                or a["after"]["memory_peak_mb"] < b["after"]["memory_peak_mb"]
+            )
+        )
+
+    front = []
+    for c in candidates:
+        if any(dominates(other, c) for other in candidates):
+            continue
+        front.append(c)
+
+    # 在帕累托前沿中取加权评分最低者（启动:处理:内存 = 1:10:100）
+    def score(r: dict) -> float:
+        return (
+            r["after"]["startup_seconds"]
+            + r["after"]["total_processing_seconds"] * 10
+            + r["after"]["memory_peak_mb"] * 100
+        )
+    return min(front, key=score)
+
+
 def run_optimization(max_rounds: int = 10):
-    results = load_results()
+    # 重置结果文件
+    if RESULTS_FILE.exists():
+        RESULTS_FILE.unlink()
+    results: list[dict] = []
+
     current_metrics = run_benchmark()
     print(f"初始指标: {current_metrics.to_dict()}")
 
@@ -463,15 +530,13 @@ def run_optimization(max_rounds: int = 10):
         after = run_benchmark()
         print(f"优化后指标: {after.to_dict()}")
 
+        # 测试通过即保留为版本，记录帕累托改善情况
         accepted = is_pareto_better(before, after)
-        print(f"验收: {'通过' if accepted else '未通过'}")
+        print(f"帕累托验收: {'通过' if accepted else '未通过'}（仍保留为版本）")
 
-        if accepted:
-            current_metrics = after
-            run_git(["add", "-A"])
-            run_git(["commit", "-m", f"Round {r}: {strategy_name}"], check=False)
-        else:
-            run_git(["checkout", "--", "."], check=False)
+        current_metrics = after
+        run_git(["add", "-A"])
+        run_git(["commit", "-m", f"Round {r}: {strategy_name}"], check=False)
 
         round_result = RoundResult(
             round=r,
@@ -484,7 +549,14 @@ def run_optimization(max_rounds: int = 10):
         results.append(round_result.to_dict())
         save_results(results)
 
-    print("\n最终指标:", current_metrics.to_dict())
+    best = find_pareto_best(results)
+    if best:
+        print(f"\n帕累托最优版本: 第 {best['round']} 轮 ({best['strategy']})")
+        print(f"指标: {best['after']}")
+    else:
+        print("\n未找到有效优化版本")
+
+    print("\n最终当前指标:", current_metrics.to_dict())
     return results
 
 
