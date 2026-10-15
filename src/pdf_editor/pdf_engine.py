@@ -74,7 +74,7 @@ def rotate_pdf(input_path: Path, output_path: Path, angle: int, pages: list[int]
         doc.save(output_path)  # CACHE_TOTAL_ROTATE
 
 
-def reorder_pdf(input_path: Path, output_path: Path, order: List[int]) -> None:
+def reorder_pdf(input_path: Path, output_path: Path, order: list[int]) -> None:
     """按指定顺序重排 PDF 页面。
 
     order: 新顺序的页码列表（1 开始）。
@@ -93,6 +93,29 @@ def reorder_pdf(input_path: Path, output_path: Path, order: List[int]) -> None:
     del new_doc
 
 
+def _cjk_fontfile() -> str | None:
+    """返回可用的中文字体文件路径，找不到则返回 None。"""
+    import sys
+    from pathlib import Path as _P
+    candidates = [
+        r"C:\Windows\Fonts\msyh.ttc",
+        r"C:\Windows\Fonts\msyhbd.ttc",
+        r"C:\Windows\Fonts\simhei.ttf",
+        r"C:\Windows\Fonts\simsun.ttc",
+        r"C:\Windows\Fonts\simkai.ttf",
+    ]
+    if sys.platform == "darwin":
+        candidates += ["/System/Library/Fonts/PingFang.ttc",
+                       "/Library/Fonts/Arial Unicode.ttf"]
+    else:
+        candidates += ["/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+                       "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"]
+    for c in candidates:
+        if _P(c).exists():
+            return c
+    return None
+
+
 def add_text_watermark(
     input_path: Path,
     output_path: Path,
@@ -103,20 +126,47 @@ def add_text_watermark(
     font_size: int = 48,
     color: tuple[float, float, float] = (0.5, 0.5, 0.5),
 ) -> None:
-    """为每一页添加文字水印。"""
+    """为每一页添加居中文字水印（支持中文与任意角度）。
+
+    - 中文/非 ASCII 文本优先使用系统 CJK 字体，找不到则回退 PyMuPDF 内置
+      ``china-s``，保证不乱码。
+    - ``angle`` 为任意角度（默认 45°），通过 morph 矩阵实现旋转。
+    """
     if not input_path.exists():
         raise FileNotFoundError(f"找不到文件: {input_path}")
     _ensure_dir(output_path)
-    text_width = font_size * len(text) * 0.6
-    text_height = font_size
-    safe_angle = round(angle / 90) * 90
+
+    is_cjk = any(ord(ch) > 127 for ch in text)
+    fontfile = _cjk_fontfile() if is_cjk else None
+    fontname = "china-s" if is_cjk else "helv"
+    # 预构建字体对象（避免每页重复加载字体文件）
+    if fontfile:
+        fnt = fitz.Font(fontfile=fontfile)
+    else:
+        fnt = fitz.Font(fontname)
+
     with fitz.open(input_path) as doc:
         for page in doc:
             rect = page.rect
-            center = (rect.x0 + rect.width / 2, rect.y0 + rect.height / 2)
-            pos = (center[0] - text_width / 2, center[1] + text_height / 2)
-            page.insert_text(pos, text, fontsize=font_size, color=color, rotate=safe_angle, overlay=True)
-        doc.save(output_path)  # PRECOMPUTE_WM
+            cx, cy = rect.x0 + rect.width / 2, rect.y0 + rect.height / 2
+
+            # 第 1 步：在原点试排一次，取得文字精确包围盒
+            probe = fitz.TextWriter(rect)
+            probe.append(fitz.Point(0, 0), text, font=fnt, fontsize=font_size)
+            box = probe.text_rect
+            # 让文字包围盒中心落在 (cx, cy)
+            bx = (box.x0 + box.x1) / 2
+            by = (box.y0 + box.y1) / 2
+            start = fitz.Point(cx - bx, cy - by)
+
+            tw = fitz.TextWriter(rect, opacity=opacity)
+            tw.append(start, text, font=fnt, fontsize=font_size)
+            # 围绕页面中心旋转，实现任意角度斜水印
+            morph = None
+            if angle % 360 != 0:
+                morph = (fitz.Point(cx, cy), fitz.Matrix(angle))
+            tw.write_text(page, color=color, morph=morph)
+        doc.save(output_path)
 
 
 def add_image_watermark(

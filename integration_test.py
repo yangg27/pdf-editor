@@ -113,7 +113,13 @@ def test_text_watermark(tmp_dir: Path):
     add_text_watermark(src, out, "CONFIDENTIAL")
     text = extract_text(out)
     assert "CONFIDENTIAL" in text
-    print("[OK] 文字水印")
+
+    # 中文水印回归
+    out_cn = tmp_dir / "wm_cn.pdf"
+    add_text_watermark(src, out_cn, "机密 - 三一重工")
+    text_cn = extract_text(out_cn)
+    assert "机密" in text_cn and "三一重工" in text_cn, f"中文水印异常: {text_cn!r}"
+    print("[OK] 文字水印（含中文）")
 
 
 def test_image_watermark(tmp_dir: Path):

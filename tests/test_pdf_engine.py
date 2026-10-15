@@ -11,6 +11,7 @@ from pdf_editor.pdf_engine import (
     rotate_pdf,
     reorder_pdf,
     add_text_watermark,
+    add_image_watermark,
     extract_text,
 )
 
@@ -76,6 +77,34 @@ def test_add_text_watermark(tmp_path: Path):
     with fitz.open(out) as doc:
         text = doc[0].get_text()
         assert "TEST" in text
+
+
+def test_add_text_watermark_chinese(tmp_path: Path):
+    """回归测试：中文水印必须正确渲染，不得乱码或丢失。"""
+    src = tmp_path / "src.pdf"
+    _make_sample_pdf(src, 1)
+    out = tmp_path / "wm_cn.pdf"
+    add_text_watermark(src, out, "机密 - 三一重工")
+    text = extract_text(out)
+    assert "机密" in text
+    assert "三一重工" in text
+
+
+def test_add_image_watermark(tmp_path: Path):
+    """图片水印：输出页数不变且图片被嵌入。"""
+    from PIL import Image
+
+    src = tmp_path / "src.pdf"
+    _make_sample_pdf(src, 2)
+    img = tmp_path / "stamp.png"
+    Image.new("RGBA", (80, 80), (200, 30, 30, 150)).save(img)
+    out = tmp_path / "img_wm.pdf"
+    add_image_watermark(src, out, img)
+    assert out.exists()
+    with fitz.open(out) as doc:
+        assert len(doc) == 2
+        # 每页应至少嵌入 1 张图片
+        assert len(doc[0].get_images(full=True)) >= 1
 
 
 def test_extract_text(tmp_path: Path):

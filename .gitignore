@@ -10,3 +10,9 @@ build/
 .integration_test/
 benchmark_result.json
 optimization_results.json
+.capture_work/
+docs/images/
+docs/manual.html
+.capture_samples/
+tools_capture_ui.py
+build_manual.py
