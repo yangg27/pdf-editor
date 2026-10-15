@@ -43,6 +43,11 @@ pdf-editor/
 ├── src/pdf_editor/   # 核心引擎与 UI
 ├── tests/            # 单元测试
 ├── docs/design.md    # 架构设计
+├── OPTIMIZATION.md   # 10 轮优化迭代报告
 ├── main.py           # 入口
 └── requirements.txt
 ```
+
+## 优化迭代
+
+本项目经过 10 轮性能优化迭代，覆盖启动速度、处理速度和内存占用。详见 [OPTIMIZATION.md](./OPTIMIZATION.md)。
