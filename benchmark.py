@@ -1,7 +1,7 @@
 """性能基准测试。
 
 测量维度：
-1. 启动时间（import 到主窗口 ready 的近似时间，用子进程 import 耗时代理）
+1. 启动时间：子进程运行 main.py --version 的耗时
 2. 处理耗时：合并、拆分、旋转、添加水印
 3. 峰值内存：处理大文件时的最大 RSS
 """
@@ -34,7 +34,6 @@ def _make_pdf(path: Path, pages: int):
     doc = fitz.open()
     for i in range(pages):
         page = doc.new_page(width=595, height=842)
-        # 加一些文字让文件更有“内容”
         for j in range(20):
             page.insert_text((50, 50 + j * 30), f"Line {j} on page {i + 1}")
     doc.save(path)
@@ -55,28 +54,32 @@ def _prepare_samples(tmp_dir: Path):
 
 
 def measure_startup() -> float:
-    """测量 main.py 只做 import 的冷启动耗时（代理启动速度）"""
+    """测量 main.py 冷启动耗时（运行 --version）。"""
     script = PROJECT_ROOT / "main.py"
-    cmd = [sys.executable, str(script), "--help-check"]
+    cmd = [sys.executable, str(script), "--version"]
     env = os.environ.copy()
     env["PYTHONDONTWRITEBYTECODE"] = "1"
-    start = time.perf_counter()
-    proc = subprocess.run(
-        cmd,
-        env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        timeout=60,
-    )
-    elapsed = time.perf_counter() - start
-    if proc.returncode != 0:
-        # --help-check 未实现则退化到 import 测试
-        pass
-    return elapsed
+    # 预热一次，减少文件缓存影响
+    subprocess.run(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+    times = []
+    for _ in range(3):
+        start = time.perf_counter()
+        proc = subprocess.run(
+            cmd,
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=60,
+        )
+        elapsed = time.perf_counter() - start
+        if proc.returncode != 0:
+            raise RuntimeError("main.py --version 启动失败")
+        times.append(elapsed)
+    return min(times)
 
 
 def measure_import_time() -> float:
-    """更稳定的启动代理：测量 import 核心引擎耗时（UI 依赖 tkinter 可能不可用）。"""
+    """测量 import 核心引擎耗时。"""
     start = time.perf_counter()
     import pdf_editor.pdf_engine  # noqa: F401
     return time.perf_counter() - start
@@ -127,7 +130,7 @@ def run_benchmark() -> dict:
     tmp_dir.mkdir(exist_ok=True)
     samples, big = _prepare_samples(tmp_dir)
 
-    startup = measure_import_time()
+    startup = measure_startup()
     processing = measure_processing(samples, big, tmp_dir)
     memory = measure_memory(big, tmp_dir)
 
