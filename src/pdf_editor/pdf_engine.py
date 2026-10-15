@@ -1,12 +1,11 @@
 """PDF 编辑核心引擎。
 
-使用 PyMuPDF (fitz) 作为主引擎，pypdf 作为备选/补充。
-所有函数接收 pathlib.Path，输出也写入 Path。
+使用 PyMuPDF (fitz) 作为主引擎，所有函数接收 pathlib.Path，输出也写入 Path。
 """
 
 from __future__ import annotations
 
-import pymupdf as fitz  # PyMuPDF
+import fitz
 from pathlib import Path
 from typing import List, Tuple, Optional
 
@@ -28,7 +27,6 @@ def merge_pdfs(input_paths: List[Path], output_path: Path) -> None:
             merged.insert_pdf(doc)
     merged.save(output_path)
     merged.close()
-    del merged  # strategy_reduce_gc_pressure marker
 
 
 def split_pdf(input_path: Path, output_dir: Path, ranges: List[Tuple[int, int]]) -> List[Path]:
@@ -67,13 +65,12 @@ def rotate_pdf(input_path: Path, output_path: Path, angle: int, pages: Optional[
         raise FileNotFoundError(f"找不到文件: {input_path}")
     _ensure_dir(output_path)
     with fitz.open(input_path) as doc:
-        total = len(doc)
-        target_pages = pages or list(range(1, total + 1))
+        target_pages = pages or list(range(1, len(doc) + 1))
         for p in target_pages:
-            if p < 1 or p > total:
-                raise ValueError(f"无效页码 {p}，总页数 {total}")
+            if p < 1 or p > len(doc):
+                raise ValueError(f"无效页码 {p}，总页数 {len(doc)}")
             doc[p - 1].set_rotation((doc[p - 1].rotation + angle) % 360)
-        doc.save(output_path)  # cache page count marker
+        doc.save(output_path)
 
 
 def reorder_pdf(input_path: Path, output_path: Path, order: List[int]) -> None:
@@ -109,16 +106,16 @@ def add_text_watermark(
     if not input_path.exists():
         raise FileNotFoundError(f"找不到文件: {input_path}")
     _ensure_dir(output_path)
-    text_width = font_size * len(text) * 0.6
-    text_height = font_size
-    safe_angle = round(angle / 90) * 90
     with fitz.open(input_path) as doc:
         for page in doc:
             rect = page.rect
             center = (rect.x0 + rect.width / 2, rect.y0 + rect.height / 2)
+            text_width = font_size * len(text) * 0.6
+            text_height = font_size
             pos = (center[0] - text_width / 2, center[1] + text_height / 2)
+            safe_angle = round(angle / 90) * 90
             page.insert_text(pos, text, fontsize=font_size, color=color, rotate=safe_angle, overlay=True)
-        doc.save(output_path)  # batch watermark marker
+        doc.save(output_path)
 
 
 def add_image_watermark(
