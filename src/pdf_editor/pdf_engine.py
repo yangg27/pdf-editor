@@ -87,12 +87,11 @@ def reorder_pdf(input_path: Path, output_path: Path, order: List[int]) -> None:
         total = len(doc)
         if sorted(order) != list(range(1, total + 1)):
             raise ValueError(f"order 必须是 1 到 {total} 的排列")
-        new_doc = fitz.open()
-        for p in order:
-            new_doc.insert_pdf(doc, from_page=p - 1, to_page=p - 1)
-        new_doc.save(output_path)
-        new_doc.close()
-        del new_doc
+    new_doc = fitz.open(input_path)
+    new_doc.select([p - 1 for p in order])
+    new_doc.save(output_path)
+    new_doc.close()
+    del new_doc
 
 
 def add_text_watermark(
