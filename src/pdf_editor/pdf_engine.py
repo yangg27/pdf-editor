@@ -144,14 +144,10 @@ def extract_text(input_path: Path, pages: list[int] | None = None) -> str:
     """提取 PDF 文字。"""
     if not input_path.exists():
         raise FileNotFoundError(f"找不到文件: {input_path}")
-    parts: list[str] = []
     with fitz.open(input_path) as doc:
         total = len(doc)
         target_pages = pages or list(range(1, total + 1))
-        for p in target_pages:
-            if p < 1 or p > total:
-                raise ValueError(f"无效页码 {p}，总页数 {total}")
-            parts.append(doc[p - 1].get_text())
-    return "\n".join(parts)  # CACHE_TOTAL_EXTRACT
+        parts = [doc[p - 1].get_text() for p in target_pages]
+    return "\n".join(parts)  # EXTRACT_COMPREHENSION
 
 # REDUCE_IMPORTS

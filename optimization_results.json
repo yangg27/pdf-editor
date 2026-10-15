@@ -24,5 +24,21 @@
     },
     "tests_passed": true,
     "accepted": false
+  },
+  {
+    "round": 4,
+    "strategy": "cache_total_extract",
+    "before": {
+      "startup_seconds": 0.18952150001132395,
+      "total_processing_seconds": 0.5328582999936771,
+      "memory_peak_mb": 0.014819145202636719
+    },
+    "after": {
+      "startup_seconds": 0.18594609999854583,
+      "total_processing_seconds": 0.5634334000060335,
+      "memory_peak_mb": 0.016229629516601562
+    },
+    "tests_passed": true,
+    "accepted": false
   }
 ]
