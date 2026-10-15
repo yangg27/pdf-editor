@@ -1,0 +1,12 @@
+{
+  "version": "baseline",
+  "startup_seconds": 4.999994416721165e-06,
+  "processing_seconds": {
+    "merge": 0.06004019999818411,
+    "split": 0.11142580000159796,
+    "rotate": 0.10802590000093915,
+    "watermark": 0.2481437999958871
+  },
+  "memory_peak_mb": 0.01668262481689453,
+  "total_processing_seconds": 0.5276356999966083
+}

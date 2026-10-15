@@ -1,0 +1,4 @@
+PyMuPDF>=1.24.0
+pypdf>=4.0.0
+ttkbootstrap>=1.10.0
+pytest>=8.0.0

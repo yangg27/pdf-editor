@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: pdf-editor
+Version: 0.1.0
+Summary: 本地桌面 PDF 编辑器 MVP
+Requires-Python: >=3.10
+Requires-Dist: PyMuPDF>=1.24.0
+Requires-Dist: pypdf>=4.0.0
+Requires-Dist: ttkbootstrap>=1.10.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
