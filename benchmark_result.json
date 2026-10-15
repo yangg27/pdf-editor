@@ -1,12 +1,12 @@
 {
   "version": "baseline",
-  "startup_seconds": 0.1870140000100946,
+  "startup_seconds": 0.1481727000209503,
   "processing_seconds": {
-    "merge": 0.058385500000440516,
-    "split": 0.37455389999377076,
-    "rotate": 0.11005580000346527,
-    "watermark": 0.26005300000542775
+    "merge": 0.05810390002443455,
+    "split": 0.37568329999339767,
+    "rotate": 0.10263959999429062,
+    "watermark": 0.23823009998886846
   },
-  "memory_peak_mb": 0.01771831512451172,
-  "total_processing_seconds": 0.8030482000031043
+  "memory_peak_mb": 0.0182952880859375,
+  "total_processing_seconds": 0.7746569000009913
 }
