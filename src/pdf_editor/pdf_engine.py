@@ -18,15 +18,14 @@ def merge_pdfs(input_paths: list[Path], output_path: Path) -> None:
     if not input_paths:
         raise ValueError("至少需要一个输入文件")
     _ensure_dir(output_path)
+    docs = [fitz.open(p) for p in input_paths]
     merged = fitz.open()
-    for p in input_paths:
-        if not p.exists():
-            raise FileNotFoundError(f"找不到文件: {p}")
-        with fitz.open(p) as doc:
-            merged.insert_pdf(doc)
+    for doc in docs:
+        merged.insert_pdf(doc)
+        doc.close()
     merged.save(output_path)
     merged.close()
-    del merged
+    del merged, docs
 
 
 def split_pdf(input_path: Path, output_dir: Path, ranges: list[tuple[int, int]]) -> list[Path]:
