@@ -1,0 +1,12 @@
+[
+  {
+    "round": 1,
+    "strategy": "pymupdf_alias",
+    "skipped": true
+  },
+  {
+    "round": 2,
+    "strategy": "reduce_imports",
+    "skipped": true
+  }
+]

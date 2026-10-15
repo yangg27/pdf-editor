@@ -64,12 +64,13 @@ def rotate_pdf(input_path: Path, output_path: Path, angle: int, pages: list[int]
         raise FileNotFoundError(f"找不到文件: {input_path}")
     _ensure_dir(output_path)
     with fitz.open(input_path) as doc:
-        target_pages = pages or list(range(1, len(doc) + 1))
+        total = len(doc)
+        target_pages = pages or list(range(1, total + 1))
         for p in target_pages:
-            if p < 1 or p > len(doc):
-                raise ValueError(f"无效页码 {p}，总页数 {len(doc)}")
+            if p < 1 or p > total:
+                raise ValueError(f"无效页码 {p}，总页数 {total}")
             doc[p - 1].set_rotation((doc[p - 1].rotation + angle) % 360)
-        doc.save(output_path)
+        doc.save(output_path)  # CACHE_TOTAL_ROTATE
 
 
 def reorder_pdf(input_path: Path, output_path: Path, order: List[int]) -> None:
