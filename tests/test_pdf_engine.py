@@ -13,6 +13,13 @@ from pdf_editor.pdf_engine import (
     add_text_watermark,
     add_image_watermark,
     extract_text,
+    page_count,
+    page_size,
+    render_page_png,
+    delete_pages,
+    extract_pages,
+    insert_pages,
+    rotate_page,
 )
 
 
@@ -113,6 +120,75 @@ def test_extract_text(tmp_path: Path):
     text = extract_text(src)
     assert "Page 1" in text
     assert "Page 2" in text
+
+
+# ---------------- 页面级操作 ----------------
+
+def test_page_count_and_size(tmp_path: Path):
+    src = tmp_path / "src.pdf"
+    _make_sample_pdf(src, 4)
+    assert page_count(src) == 4
+    w, h = page_size(src, 1)
+    assert abs(w - 595) < 1 and abs(h - 842) < 1
+
+
+def test_render_page_png(tmp_path: Path):
+    src = tmp_path / "src.pdf"
+    _make_sample_pdf(src, 2)
+    data = render_page_png(src, 1, zoom=0.5)
+    assert data[:4] == b"\x89PNG"
+    assert len(data) > 200
+
+
+def test_delete_pages(tmp_path: Path):
+    src = tmp_path / "src.pdf"
+    _make_sample_pdf(src, 5)
+    out = tmp_path / "del.pdf"
+    delete_pages(src, out, [2, 4])
+    text = extract_text(out)
+    assert page_count(out) == 3
+    assert "Page 2" not in text and "Page 4" not in text
+    assert "Page 1" in text and "Page 3" in text and "Page 5" in text
+
+
+def test_delete_pages_reject_all(tmp_path: Path):
+    src = tmp_path / "src.pdf"
+    _make_sample_pdf(src, 2)
+    out = tmp_path / "del.pdf"
+    with pytest.raises(ValueError):
+        delete_pages(src, out, [1, 2])
+
+
+def test_extract_pages_order(tmp_path: Path):
+    src = tmp_path / "src.pdf"
+    _make_sample_pdf(src, 3)
+    out = tmp_path / "ex.pdf"
+    extract_pages(src, out, [3, 1])
+    text = extract_text(out)
+    lines = [l for l in text.splitlines() if l.strip()]
+    assert lines[0].startswith("Page 3")
+    assert lines[1].startswith("Page 1")
+
+
+def test_insert_pages(tmp_path: Path):
+    src = tmp_path / "src.pdf"
+    _make_sample_pdf(src, 3)
+    apx = tmp_path / "apx.pdf"
+    _make_sample_pdf(apx, 1)
+    out = tmp_path / "ins.pdf"
+    insert_pages(src, out, apx, at=1)
+    assert page_count(out) == 4
+
+
+def test_rotate_page_single(tmp_path: Path):
+    src = tmp_path / "src.pdf"
+    _make_sample_pdf(src, 3)
+    out = tmp_path / "rot.pdf"
+    rotate_page(src, out, 2, 90)
+    with fitz.open(out) as doc:
+        assert doc[0].rotation == 0
+        assert doc[1].rotation == 90
+        assert doc[2].rotation == 0
 
 
 if __name__ == "__main__":

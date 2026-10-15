@@ -2,7 +2,8 @@
 
 覆盖：
 1. exe 可启动（--version）
-2. PDF 引擎所有功能：合并、拆分、旋转、重排、文字水印、图片水印、提取文字
+2. PDF 引擎所有功能：合并、拆分、旋转、重排、删除页、提取页、插入页、
+   页面渲染、文字水印、图片水印、提取文字
 3. 输出文件存在且内容正确
 """
 
@@ -22,6 +23,13 @@ from pdf_editor.pdf_engine import (
     add_text_watermark,
     add_image_watermark,
     extract_text,
+    page_count,
+    page_size,
+    render_page_png,
+    delete_pages,
+    extract_pages,
+    insert_pages,
+    rotate_page,
 )
 
 
@@ -144,6 +152,58 @@ def test_extract_text(tmp_dir: Path):
     print("[OK] 提取文字")
 
 
+def test_delete_pages(tmp_dir: Path):
+    src = tmp_dir / "del_src.pdf"
+    _make_pdf(src, 5, "D")
+    out = tmp_dir / "deleted.pdf"
+    delete_pages(src, out, [2, 4])
+    assert page_count(out) == 3
+    text = extract_text(out)
+    assert "D 1" in text and "D 3" in text and "D 5" in text
+    assert "D 2" not in text and "D 4" not in text
+    print("[OK] 删除页面")
+
+
+def test_extract_pages(tmp_dir: Path):
+    src = tmp_dir / "ext_src.pdf"
+    _make_pdf(src, 5, "E")
+    out = tmp_dir / "extracted.pdf"
+    extract_pages(src, out, [5, 1])
+    assert page_count(out) == 2
+    text = extract_text(out)
+    assert "E 5" in text and "E 1" in text
+    print("[OK] 提取指定页")
+
+
+def test_insert_pages(tmp_dir: Path):
+    src = tmp_dir / "ins_src.pdf"
+    _make_pdf(src, 3, "M")
+    app = tmp_dir / "ins_app.pdf"
+    _make_pdf(app, 1, "X")
+    out = tmp_dir / "inserted.pdf"
+    insert_pages(src, out, app, at=2)
+    assert page_count(out) == 4
+    text = extract_text(out)
+    assert "X 1" in text
+    print("[OK] 插入页面")
+
+
+def test_render_and_rotate_page(tmp_dir: Path):
+    src = tmp_dir / "r_src.pdf"
+    _make_pdf(src, 3, "R")
+    # 页面渲染
+    png = render_page_png(src, 1, zoom=0.5)
+    assert png[:4] == b"\x89PNG", "渲染输出不是 PNG"
+    w, h = page_size(src, 1)
+    assert w > 0 and h > 0
+    # 单页旋转
+    out = tmp_dir / "rot_one.pdf"
+    rotate_page(src, out, 3, 90)
+    with fitz.open(out) as doc:
+        assert doc[2].rotation == 90
+    print("[OK] 页面渲染 / 单页旋转")
+
+
 def main():
     tmp_dir = PROJECT_ROOT / ".integration_test"
     if tmp_dir.exists():
@@ -157,6 +217,10 @@ def main():
         test_split(tmp_dir)
         test_rotate(tmp_dir)
         test_reorder(tmp_dir)
+        test_delete_pages(tmp_dir)
+        test_extract_pages(tmp_dir)
+        test_insert_pages(tmp_dir)
+        test_render_and_rotate_page(tmp_dir)
         test_text_watermark(tmp_dir)
         test_image_watermark(tmp_dir)
         test_extract_text(tmp_dir)

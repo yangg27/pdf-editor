@@ -199,8 +199,107 @@ def extract_text(input_path: Path, pages: list[int] | None = None) -> str:
         total = len(doc)
         target_pages = pages or list(range(1, total + 1))
         parts = [doc[p - 1].get_text() for p in target_pages]
-    return "\n".join(parts)  # EXTRACT_COMPREHENSION
+    return "\n".join(parts)
 
-# REDUCE_IMPORTS
 
-# DEL_OBJECTS
+# ---------------- 页面级操作（WPS 风格编辑能力） ----------------
+
+def page_count(input_path: Path) -> int:
+    """返回 PDF 总页数。"""
+    if not input_path.exists():
+        raise FileNotFoundError(f"找不到文件: {input_path}")
+    with fitz.open(input_path) as doc:
+        return len(doc)
+
+
+def page_size(input_path: Path, page: int = 1) -> tuple[float, float]:
+    """返回指定页的 (宽, 高) 点值（1 开始）。"""
+    with fitz.open(input_path) as doc:
+        total = len(doc)
+        if page < 1 or page > total:
+            raise ValueError(f"无效页码 {page}，总页数 {total}")
+        r = doc[page - 1].rect
+        return r.width, r.height
+
+
+def render_page_png(input_path: Path, page: int, *, zoom: float = 1.0) -> bytes:
+    """把指定页渲染为 PNG 字节流，供界面预览/缩略图使用（1 开始）。"""
+    if not input_path.exists():
+        raise FileNotFoundError(f"找不到文件: {input_path}")
+    with fitz.open(input_path) as doc:
+        total = len(doc)
+        if page < 1 or page > total:
+            raise ValueError(f"无效页码 {page}，总页数 {total}")
+        pix = doc[page - 1].get_pixmap(matrix=fitz.Matrix(zoom, zoom))
+        return pix.tobytes("png")
+
+
+def delete_pages(input_path: Path, output_path: Path, pages: list[int]) -> None:
+    """删除指定页码（1 开始），输出为新文件。
+
+    不允许删除全部页面。
+    """
+    if not input_path.exists():
+        raise FileNotFoundError(f"找不到文件: {input_path}")
+    _ensure_dir(output_path)
+    with fitz.open(input_path) as doc:
+        total = len(doc)
+        bad = [p for p in pages if p < 1 or p > total]
+        if bad:
+            raise ValueError(f"无效页码 {bad}，总页数 {total}")
+        if len(set(pages)) >= total:
+            raise ValueError("不能删除全部页面")
+        for p in sorted(set(pages), reverse=True):
+            doc.delete_page(p - 1)
+        doc.save(output_path)
+
+
+def extract_pages(input_path: Path, output_path: Path, pages: list[int]) -> None:
+    """提取指定页码（1 开始）另存为新 PDF，保持给定顺序。"""
+    if not input_path.exists():
+        raise FileNotFoundError(f"找不到文件: {input_path}")
+    if not pages:
+        raise ValueError("至少需要选择 1 页")
+    _ensure_dir(output_path)
+    with fitz.open(input_path) as doc:
+        total = len(doc)
+        bad = [p for p in pages if p < 1 or p > total]
+        if bad:
+            raise ValueError(f"无效页码 {bad}，总页数 {total}")
+        new_doc = fitz.open()
+        for p in pages:
+            new_doc.insert_pdf(doc, from_page=p - 1, to_page=p - 1)
+        new_doc.save(output_path)
+        new_doc.close()
+
+
+def insert_pages(input_path: Path, output_path: Path, source_path: Path, *, at: int = -1) -> None:
+    """把 source_path 的全部页面插入到 input_path 的 at 位置之后。
+
+    at=-1 表示插入到末尾；at=0 表示插入到最前。
+    """
+    for p in (input_path, source_path):
+        if not p.exists():
+            raise FileNotFoundError(f"找不到文件: {p}")
+    _ensure_dir(output_path)
+    with fitz.open(input_path) as doc:
+        total = len(doc)
+        with fitz.open(source_path) as src:
+            doc.insert_pdf(src, start_at=max(0, at))
+        doc.save(output_path)
+
+
+def rotate_page(input_path: Path, output_path: Path, page: int, angle: int) -> None:
+    """旋转单页（1 开始）。angle: 90/180/270（顺时针）。"""
+    if angle not in (90, 180, 270):
+        raise ValueError("旋转角度仅支持 90/180/270")
+    if not input_path.exists():
+        raise FileNotFoundError(f"找不到文件: {input_path}")
+    _ensure_dir(output_path)
+    with fitz.open(input_path) as doc:
+        total = len(doc)
+        if page < 1 or page > total:
+            raise ValueError(f"无效页码 {page}，总页数 {total}")
+        pg = doc[page - 1]
+        pg.set_rotation((pg.rotation + angle) % 360)
+        doc.save(output_path)

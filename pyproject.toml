@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pdf-editor"
-version = "0.1.0"
+version = "0.2.0"
 description = "本地桌面 PDF 编辑器 MVP"
 requires-python = ">=3.10"
 dependencies = [
