@@ -146,11 +146,12 @@ def extract_text(input_path: Path, pages: list[int] | None = None) -> str:
         raise FileNotFoundError(f"找不到文件: {input_path}")
     parts: list[str] = []
     with fitz.open(input_path) as doc:
-        target_pages = pages or list(range(1, len(doc) + 1))
+        total = len(doc)
+        target_pages = pages or list(range(1, total + 1))
         for p in target_pages:
-            if p < 1 or p > len(doc):
-                raise ValueError(f"无效页码 {p}，总页数 {len(doc)}")
+            if p < 1 or p > total:
+                raise ValueError(f"无效页码 {p}，总页数 {total}")
             parts.append(doc[p - 1].get_text())
-    return "\n".join(parts)
+    return "\n".join(parts)  # CACHE_TOTAL_EXTRACT
 
 # REDUCE_IMPORTS

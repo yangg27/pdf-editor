@@ -8,5 +8,21 @@
     "round": 2,
     "strategy": "reduce_imports",
     "skipped": true
+  },
+  {
+    "round": 3,
+    "strategy": "cache_total_rotate",
+    "before": {
+      "startup_seconds": 0.1883118999976432,
+      "total_processing_seconds": 0.5360855000180891,
+      "memory_peak_mb": 0.01621723175048828
+    },
+    "after": {
+      "startup_seconds": 0.18952150001132395,
+      "total_processing_seconds": 0.5328582999936771,
+      "memory_peak_mb": 0.014819145202636719
+    },
+    "tests_passed": true,
+    "accepted": false
   }
 ]
