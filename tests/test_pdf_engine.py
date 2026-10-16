@@ -1115,12 +1115,24 @@ def test_session_undo_limit(tmp_path: Path):
 
 
 def test_session_temp_dir_cleaned_on_close(tmp_path: Path):
+    """惰性副本：未编辑时不建临时目录，编辑后建立并在关闭时清理。"""
     src = make_pdf(tmp_path / "src.pdf", 1)
     s = DocumentSession(src)
-    work = s._tmpdir
-    assert work is not None and work.exists()
-    s.close()
-    assert not work.exists()
+    try:
+        # 零拷贝打开：尚未编辑，不应创建任何临时目录
+        assert s._tmpdir is None, "打开时不应创建工作副本，避免整文件拷贝"
+        assert s.work_path is None
+        # 触发一次需要真实路径的操作，才惰性生成副本
+        s.push_undo()
+        from pdf_editor.pdf_engine import rotate_document
+
+        rotate_document(s.doc, 90)
+        s.sync_work()
+        work = s._tmpdir
+        assert work is not None and work.exists()
+    finally:
+        s.close()
+    assert not work.exists(), "关闭后临时目录应被清理"
 
 
 def test_session_can_reopen_after_close(tmp_path: Path):
@@ -1357,6 +1369,154 @@ def test_search_case_sensitive_rects_are_accurate(tmp_path: Path):
 def test_empty_needle_returns_no_hits(tmp_path: Path):
     src = make_pdf(tmp_path / "e.pdf", 1)
     assert search_text(src, "") == []
+
+
+# ----------------------------------------------------------- 惰性工作副本
+def test_lazy_copy_open_does_not_copy_file(tmp_path: Path):
+    """零拷贝打开：不应创建任何工作副本文件，也不应碰源文件。"""
+    src = make_pdf(tmp_path / "lazy.pdf", 3)
+    before = src.read_bytes()
+    s = DocumentSession(src)
+    try:
+        assert s.source == src
+        assert s.work_path is None, "未编辑时不应存在工作副本"
+        assert s._tmpdir is None, "未编辑时不应创建临时目录"
+        assert s.page_count == 3
+    finally:
+        s.close()
+    assert src.read_bytes() == before
+
+
+def test_lazy_copy_created_on_edit(tmp_path: Path):
+    """首次编辑需要文件路径时，才惰性创建副本。"""
+    src = make_pdf(tmp_path / "lazy2.pdf", 1)
+    s = DocumentSession(src)
+    try:
+        assert s.work_path is None
+        s.push_undo()
+        from pdf_editor.pdf_engine import rotate_document
+
+        rotate_document(s.doc, 90)
+        s.sync_work()
+        assert s.work_path is not None and s.work_path.exists()
+    finally:
+        s.close()
+
+
+def test_lazy_copy_edit_keeps_source_intact(tmp_path: Path):
+    """惰性副本下，编辑过程中源文件内容必须保持不变。"""
+    src = make_pdf(tmp_path / "keep.pdf", 2)
+    before = src.read_bytes()
+    s = DocumentSession(src)
+    try:
+        s.push_undo()
+        from pdf_editor.pdf_engine import insert_blank_document_page
+
+        insert_blank_document_page(s.doc)
+        s.sync_work()
+        assert s.page_count == 3
+        assert src.read_bytes() == before, "编辑过程中不得改动源文件"
+    finally:
+        s.close()
+
+
+def test_lazy_copy_save_back_to_source(tmp_path: Path):
+    """零拷贝打开后直接保存回源路径，必须成功且内容已更新。"""
+    src = make_pdf(tmp_path / "back.pdf", 2)
+    s = DocumentSession(src)
+    try:
+        assert s.work_path is None
+        s.push_undo()
+        from pdf_editor.pdf_engine import rotate_document
+
+        rotate_document(s.doc, 90)
+        s.save()  # 目标默认即源路径
+        assert s.dirty is False
+        # 保存后句柄必须仍然可用（已重建）
+        assert s.page_count == 2
+    finally:
+        s.close()
+    with open_document(src) as doc:
+        assert all(p.rotation == 90 for p in doc), "源文件应已写回且旋转生效"
+
+
+def test_lazy_copy_save_as_leaves_source(tmp_path: Path):
+    """零拷贝下另存为，源文件必须完全不被改动。"""
+    src = make_pdf(tmp_path / "sa.pdf", 2)
+    before = src.read_bytes()
+    target = tmp_path / "out.pdf"
+    s = DocumentSession(src)
+    try:
+        s.push_undo()
+        from pdf_editor.pdf_engine import insert_blank_document_page
+
+        insert_blank_document_page(s.doc)
+        s.save(target)
+    finally:
+        s.close()
+    assert page_count(target) == 3
+    assert src.read_bytes() == before, "另存为不应改动源文件"
+
+
+def test_lazy_copy_encrypted_still_uses_copy(tmp_path: Path):
+    """加密文档仍需解密到工作副本，语义与改造前一致。"""
+    src = make_pdf(tmp_path / "plain.pdf", 2)
+    enc = tmp_path / "enc.pdf"
+    set_encryption(src, enc, user_password="pw", owner_password="pw")
+    s = DocumentSession(enc, "pw")
+    try:
+        assert s.page_count == 2
+        assert s.work_path is not None, "加密文档应解密到工作副本"
+        assert s.work_path.name == enc.name
+    finally:
+        s.close()
+
+
+def test_lazy_copy_undo_redo_after_open(tmp_path: Path):
+    """零拷贝打开后撤销/重做仍正常工作。"""
+    src = make_pdf(tmp_path / "ur.pdf", 2)
+    s = DocumentSession(src)
+    try:
+        from pdf_editor.pdf_engine import insert_blank_document_page
+
+        assert s.push_undo() is True
+        insert_blank_document_page(s.doc)
+        assert s.page_count == 3
+        assert s.undo() is True
+        assert s.page_count == 2
+        assert s.redo() is True
+        assert s.page_count == 3
+    finally:
+        s.close()
+    assert page_count(src) == 2, "撤销/重做不应写坏源文件"
+
+
+def test_lazy_copy_reopen_falls_back_to_source(tmp_path: Path):
+    """work_path 为空时 reopen 应回退到源文件，不抛异常。"""
+    src = make_pdf(tmp_path / "ro.pdf", 1)
+    s = DocumentSession(src)
+    try:
+        assert s.work_path is None
+        s.reopen()
+        assert s.is_open and s.page_count == 1
+    finally:
+        s.close()
+
+
+def test_lazy_copy_repeated_open_no_leak(tmp_path: Path):
+    """反复打开不应累积临时目录（避免磁盘与句柄泄漏）。"""
+    a = make_pdf(tmp_path / "a.pdf", 1)
+    b = make_pdf(tmp_path / "b.pdf", 2)
+    s = DocumentSession(a)
+    try:
+        for _ in range(3):
+            s.open(b)
+            assert s.page_count == 2
+            s.open(a)
+            assert s.page_count == 1
+        assert s._tmpdir is None, "全程未编辑，不应残留临时目录"
+    finally:
+        s.close()
 
 
 if __name__ == "__main__":
