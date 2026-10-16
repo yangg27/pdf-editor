@@ -1,4 +1,4 @@
-"""PDF 编辑器桌面界面 —— WPS 风格（v0.3.0）。
+"""PDF 编辑器桌面界面 —— WPS 风格（v0.3.1）。
 
 布局
 ----
@@ -67,7 +67,7 @@ from .pdf_engine import (
 )
 from .tasks import TaskRunner
 
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.3.1"
 CONFIG_PATH = Path.home() / ".pdf_editor" / "config.json"
 LOG_PATH = Path.home() / ".pdf_editor" / "error.log"
 

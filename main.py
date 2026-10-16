@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 
 def _out(text: str) -> None:

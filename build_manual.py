@@ -16,7 +16,7 @@ PROJECT = Path(__file__).parent
 IMG = PROJECT / "docs" / "images"
 OUT_HTML = PROJECT / "docs" / "manual.html"
 
-VERSION = "v0.3.0"
+VERSION = "v0.3.1"
 
 
 def img_uri(name: str) -> str:

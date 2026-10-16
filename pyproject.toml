@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pdf-editor"
-version = "0.3.0"
+version = "0.3.1"
 description = "本地桌面 PDF 编辑器（Ribbon 界面 / 页面管理 / 批注 / 水印 / 加密 / 压缩）"
 requires-python = ">=3.10"
 dependencies = [
