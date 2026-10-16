@@ -4,13 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pdf-editor"
-version = "0.2.0"
-description = "本地桌面 PDF 编辑器 MVP"
+version = "0.3.0"
+description = "本地桌面 PDF 编辑器（Ribbon 界面 / 页面管理 / 批注 / 水印 / 加密 / 压缩）"
 requires-python = ">=3.10"
 dependencies = [
     "PyMuPDF>=1.24.0",
     "pypdf>=4.0.0",
     "ttkbootstrap>=1.10.0",
+    "pillow>=9.0.0",
+    "tkinterdnd2>=0.3.0",
 ]
 
 [project.optional-dependencies]

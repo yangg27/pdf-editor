@@ -1,0 +1,32 @@
+{
+  "render_ms": {
+    "new": 7.36,
+    "old": 23.96,
+    "speedup": 3.3
+  },
+  "open_20pages_ms": {
+    "session": 11.48,
+    "reopen20": 26.31
+  },
+  "big_doc": {
+    "pages": 300,
+    "open_ms": 8.5,
+    "dims_ms": 18.5,
+    "5_thumb_ms": 9.2
+  },
+  "memory_mb": {
+    "baseline": 61.2,
+    "after_40_render_cache6": 76.8,
+    "after_release": 76.8,
+    "peak": 83.7
+  },
+  "max_pixels": {
+    "limit": 6000000,
+    "actual": 5997867
+  },
+  "undo": {
+    "max_steps": 3,
+    "kept": 3,
+    "bytes_mb": 0.26
+  }
+}

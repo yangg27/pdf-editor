@@ -1,44 +1,97 @@
-# 优化迭代报告
+# 优化与稳定性说明（v0.3.0）
 
-本项目通过 10 轮自动化+手动优化迭代，持续改进启动速度、处理速度和内存占用。
+## 一、稳定性设计
 
-## 优化版本历史
+### 1. 原文件隔离
+所有编辑操作都在临时工作副本（`tempfile.mkdtemp()`）上进行，原文件在整个
+编辑过程中**只读**、字节不变。只有用户主动点击「保存」时才会写回目标路径。
 
-| 版本 | 策略 | 说明 |
+### 2. 原子保存
+保存流程：写入同目录临时文件 → `os.replace()` 原子替换 → 清理临时文件。
+`os.replace` 在同一文件系统上是原子操作，因此即使写入过程中断电或进程被杀，
+原文件也不会变成半截的损坏文件。遇到文件被占用（如正被其他程序打开）时会
+自动重试 4 次（退避 0.25s / 0.5s / 0.75s / 1.0s）。
+
+### 3. 统一异常包装
+PyMuPDF 的底层异常（`FileDataError`、`EmptyFileError` 等）全部包装为
+`PdfError`，界面层只需捕获一种类型，不会因未预料的异常类型而崩溃。
+
+### 4. 崩溃兜底
+未捕获异常通过 `sys.excepthook` / `Tk.report_callback_exception` 捕获，
+写入 `~/.pdf_editor/error.log` 并弹窗提示。打包为 windowed exe 后
+`sys.stdout` 可能为 `None`，因此诊断输出统一走 `_crash_log()`，
+不会让错误处理器自身二次崩溃。
+
+## 二、内存控制
+
+| 参数 | 值 | 说明 |
 |---|---|---|
-| Round 1 | pymupdf_alias | 使用 `import pymupdf as fitz`，消除弃用警告 |
-| Round 2 | reduce_imports | 使用 Python 3.10+ 内置泛型，减少 typing import |
-| Round 3 | cache_total_rotate | rotate 中缓存 `len(doc)` |
-| Round 4 | cache_total_extract | extract 中缓存 `len(doc)` |
-| Round 5 | extract_comprehension | extract 使用列表推导式 |
-| Round 6 | precompute_watermark | 水印预计算文字宽度/高度/角度 |
-| Round 7 | del_large_objects | 处理完大对象后立即 del |
-| Round 8 | select_split | 拆分使用 `select` 代替 `insert_pdf` |
-| Round 9 | select_reorder | 重排使用 `select` 代替逐页插入 |
-| Round 10 | fast_merge | 合并预加载文档，减少 with 切换 |
+| `PREVIEW_CACHE_MAX` | 6 | 预览图 LRU 缓存上限 |
+| `THUMB_CACHE_MAX` | 200 | 缩略图 LRU 缓存上限 |
+| `PREVIEW_MAX_PIXELS` | 6,000,000 | 单页渲染像素上限 |
+| 撤销栈步数 | 20 | 超过即淘汰最旧快照 |
+| 撤销栈内存 | 96 MB | 超过即降级（清空历史而非卡死） |
 
-## 性能指标
+### 关键实现点
 
-最终版本（Round 10）指标：
+**像素上限必须通过矩阵实现，不能用 clip。**
+`clip` 的坐标是未缩放的页面空间，`Matrix(zoom) * clip` 会得到错误的像素
+尺寸（曾出现 4760×6736 而非预期的约 100 万像素）。正确做法是先算出目标
+像素宽高，再据此构造矩阵：
 
-```json
-{
-  "startup_seconds": 0.187,
-  "total_processing_seconds": 0.803,
-  "memory_peak_mb": 0.0177
-}
+```python
+rect = page.rect
+w = max(1.0, rect.width * zoom)
+h = max(1.0, rect.height * zoom)
+if max_pixels > 0 and w * h > max_pixels:
+    scale = (max_pixels / (w * h)) ** 0.5
+    w *= scale; h *= scale
+matrix = fitz.Matrix(max(1, int(w)) / rect.width,
+                     max(1, int(h)) / rect.height)
+pix = page.get_pixmap(matrix=matrix, alpha=alpha)
 ```
 
-> 测试环境：Windows 11，Python 3.13，PyMuPDF 1.28。指标为相对参考值，实际因硬件和文件不同而变化。
+**直接取 `Pixmap.samples`，不做 PNG 往返。**
+渲染 7.36 ms vs PNG 往返 23.96 ms，**提速 3.3×**。
 
-## 取舍说明
+**缩略图虚拟化。**
+只为可视区域创建控件，滚动时按需创建 / 回收，配合 LRU 缓存。
 
-- 拆分改用 `select` 后，由于需重新打开原文件，单文件耗时有所增加，但代码更简洁、内存占用更稳定。
-- 合并预加载文档后，减少了 `with` 上下文切换，对大批量文件合并更友好。
-- 启动速度通过 `main.py` 延迟导入 UI 已得到显著优化。
+## 三、性能基准（v0.3.0 实测）
 
-## 如何复现
+| 项目 | v0.3.0 | 对照 | 提升 |
+|---|---|---|---|
+| 单页渲染（zoom=1.5） | 7.36 ms | 23.96 ms（PNG 往返） | 3.3× |
+| 打开 20 页文档 | 11.48 ms | 26.31 ms | 2.3× |
+| 300 页文档打开 | 8.5 ms | — | — |
+| 缩略图构建 | 1.8 ms/页 | — | — |
 
-```powershell
-python benchmark.py
-```
+内存（浏览 40 页，预览缓存上限 6 张）：
+
+| 阶段 | 占用 |
+|---|---|
+| 基线 | 61.2 MB |
+| 渲染 40 页后 | 76.8 MB（+15.6） |
+| 进程峰值 | 83.7 MB |
+
+预览像素上限验证：`zoom=8.0` 时实际像素 5,997,867 ≤ 上限 6,000,000 ✓
+
+## 四、v0.3.0 修复的缺陷
+
+| 缺陷 | 根因 | 修复 |
+|---|---|---|
+| 损坏 PDF 导致未捕获异常崩溃 | `fitz.open` 的 `FileDataError` 直接冒泡 | 新增 `_open_raw()` 统一包装为 `PdfError` |
+| 页码 / 水印中的空格无法搜索 | 微软雅黑 TTC 把 ASCII 空格映射为 `U+00A0` | 字体候选改为 ASCII 安全的黑体/宋体优先，并加运行时往返校验 `_font_ascii_safe()` |
+| 「区分大小写」查找无效 | PyMuPDF `search_for` 固定大小写不敏感，flags 无此开关 | 新增 `_search_case_sensitive()` 字符级精确匹配 |
+| windowed exe 的 `--help` 中文乱码 | 控制台按 ANSI 代码页编码 | `main.py` 统一写 UTF-8 字节 |
+| 页脚与页码重叠 | 两者都固定居中 | `header_footer_document` 增加位置参数，页脚默认靠左 |
+| windowed exe 崩溃日志二次崩溃 | 无控制台时 `print` 抛异常 | 新增 `_crash_log()` 兜底写文件 |
+
+## 五、测试覆盖
+
+| 类型 | 规模 | 结果 |
+|---|---|---|
+| 引擎单元测试 | 129 项 | 全部通过 |
+| 引擎冒烟测试 | 55 项检查 | 全部通过 |
+| 界面冒烟测试 | 41 个步骤 | 全部通过 |
+| 端到端集成测试 | 26 个用例（含 exe 启动与 CLI 自检） | 全部通过 |

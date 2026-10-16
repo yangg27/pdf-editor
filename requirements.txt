@@ -1,4 +1,7 @@
 PyMuPDF>=1.24.0
 pypdf>=4.0.0
 ttkbootstrap>=1.10.0
+pillow>=9.0.0
+tkinterdnd2>=0.3.0
 pytest>=8.0.0
+pyinstaller>=6.0.0
