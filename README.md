@@ -2,6 +2,8 @@
 
 本地桌面 PDF 编辑软件，界面参照 **WPS PDF** 设计，基于 Python + tkinter/ttkbootstrap + PyMuPDF。支持 Windows 10/11。
 
+> 在线仓库：<https://github.com/yangg27/pdf-editor> · 下载：[Releases](https://github.com/yangg27/pdf-editor/releases)
+
 > 当前版本 **v0.3.0** —— Ribbon 工具栏 + 三栏布局；40+ 项功能；原文件隔离与原子保存；撤销/重做；内存受控。
 
 ## 功能
@@ -77,7 +79,15 @@
 
 ## Windows 下载即用
 
-下载 `dist/pdf-editor-win10.zip`，解压后双击 `PDF编辑器.exe` 即可运行（绿色免安装）。
+前往 [Releases](https://github.com/yangg27/pdf-editor/releases) 下载：
+
+| 文件 | 说明 |
+|---|---|
+| `PDFEditor-win10.exe` | 单文件绿色版，双击即用 |
+| `pdf-editor-win10.zip` | 绿色包（含操作手册） |
+| `PDFEditor-Manual.docx` | 图文操作手册（12 章 20 图） |
+
+解压后双击 `PDF编辑器.exe` 即可运行（绿色免安装）。
 
 命令行参数：
 
